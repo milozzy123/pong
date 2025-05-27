@@ -1,0 +1,6 @@
+Hard;de goat;9999999.99
+Easy;ja;193.96
+Hard;ruben;171.11
+Hard;milo;100.81
+Easy;milo;72.05
+Medium;ikke;72.04
