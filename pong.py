@@ -93,7 +93,7 @@ LIGHT_GREY = (200, 200, 200)
 #initialiseer lettertypen
 font_groot = pygame.font.Font(None, 36)
 font_klein = pygame.font.Font(None, 28)
-font_mini = pygame.font.Font(None, 24)
+font_mini = pygame.font.Font(None, 24) # Gebruikt voor highscore items
 font_countdown = pygame.font.Font(None, 100) 
 
 #initialiseer background geluid
@@ -115,12 +115,16 @@ except pygame.error as e:
 
 #highscore bestand
 HIGHSCORE_FILE = "highscores.txt"
-highscores = []
+highscoresEASY = []
+highscoresMEDIUM = []
+highscoresHARD = []
 
 #functie om highscores te laden
 def laad_highscores():
-    global highscores
-    highscores = []
+    global highscoresEASY, highscoresMEDIUM, highscoresHARD
+    highscoresEASY = []
+    highscoresMEDIUM = []
+    highscoresHARD = []
     if os.path.exists(HIGHSCORE_FILE):
         try:
             with open(HIGHSCORE_FILE, 'r') as f:
@@ -130,28 +134,55 @@ def laad_highscores():
                         level, naam, tijd_str = parts
                         try:
                             tijd = float(tijd_str)
-                            highscores.append({'level': level, 'naam': naam, 'tijd': tijd})
+                            if level == "Easy":
+                                highscoresEASY.append({'level': level, 'naam': naam, 'tijd': tijd})
+                            elif level == "Medium":
+                                highscoresMEDIUM.append({'level': level, 'naam': naam, 'tijd': tijd})
+                            elif level == "Hard":
+                                highscoresHARD.append({'level': level, 'naam': naam, 'tijd': tijd})
                         except ValueError:
-                            print(f"Ongeldige tijd in highscore bestand: {tijd_str}")
+                            print(f"Ongeldige data in highscore bestand (tijd): {tijd_str}")
         except IOError as e:
             print(f"Fout bij lezen highscore bestand: {e}")
-    highscores.sort(key=lambda x: x['tijd'], reverse=True)
+    highscoresEASY.sort(key=lambda x: x['tijd'], reverse=True)
+    highscoresMEDIUM.sort(key=lambda x: x['tijd'], reverse=True)
+    highscoresHARD.sort(key=lambda x: x['tijd'], reverse=True)
 
 #functie om highscores op te slaan
 def sla_highscores_op():
-    global highscores
-    highscores.sort(key=lambda x: x['tijd'], reverse=True)
+    global highscoresEASY, highscoresMEDIUM, highscoresHARD
+    
+    all_scores_to_save = highscoresEASY + highscoresMEDIUM + highscoresHARD
+    
     try:
         with open(HIGHSCORE_FILE, 'w') as f:
-            for score in highscores[:10]:
+            for score in all_scores_to_save:
                 f.write(f"{score['level']};{score['naam']};{score['tijd']:.2f}\n")
     except IOError as e:
         print(f"Fout bij schrijven highscore bestand: {e}")
 
 #functie om een highscore toe te voegen
 def voeg_highscore_toe(level, naam, tijd):
-    global highscores
-    highscores.append({'level': level, 'naam': naam, 'tijd': tijd})
+    global highscoresEASY, highscoresMEDIUM, highscoresHARD
+    
+    new_score = {'level': level, 'naam': naam, 'tijd': tijd}
+    
+    if level == "Easy":
+        highscoresEASY.append(new_score)
+        highscoresEASY.sort(key=lambda x: x['tijd'], reverse=True)
+        highscoresEASY = highscoresEASY[:10]
+    elif level == "Medium":
+        highscoresMEDIUM.append(new_score)
+        highscoresMEDIUM.sort(key=lambda x: x['tijd'], reverse=True)
+        highscoresMEDIUM = highscoresMEDIUM[:10]
+    elif level == "Hard":
+        highscoresHARD.append(new_score)
+        highscoresHARD.sort(key=lambda x: x['tijd'], reverse=True)
+        highscoresHARD = highscoresHARD[:10]
+    else:
+        print(f"Poging tot toevoegen highscore voor onbekend level: {level}")
+        return
+
     sla_highscores_op()
 
 #laad opgeslagen highscores
@@ -316,14 +347,19 @@ def draw_info_paneel():
     info_x_start = GAME_AREA_WIDTH + 10
     pygame.draw.line(screen, LIGHT_GREY, (GAME_AREA_WIDTH, 0), (GAME_AREA_WIDTH, SCREEN_HEIGHT), 2)
 
-    level_text = font_klein.render(f"Level: {huidige_level_naam}", True, WHITE)
-    screen.blit(level_text, (info_x_start, 20))
+    # Basisinfo
+    current_y = 20 # Start y-positie voor info
+    level_text_surf = font_klein.render(f"Level: {huidige_level_naam}", True, WHITE)
+    screen.blit(level_text_surf, (info_x_start, current_y))
+    current_y += level_text_surf.get_height() + 5 # Verhoog y na elk item
 
-    naam_text = font_klein.render(f"Speler: {speler_naam}", True, WHITE)
-    screen.blit(naam_text, (info_x_start, 50))
+    naam_text_surf = font_klein.render(f"Speler: {speler_naam}", True, WHITE)
+    screen.blit(naam_text_surf, (info_x_start, current_y))
+    current_y += naam_text_surf.get_height() + 5
 
-    beurten_text = font_klein.render(f"Beurten: {levens}/3", True, WHITE)
-    screen.blit(beurten_text, (info_x_start, 80))
+    beurten_text_surf = font_klein.render(f"Beurten: {levens}/3", True, WHITE)
+    screen.blit(beurten_text_surf, (info_x_start, current_y))
+    current_y += beurten_text_surf.get_height() + 5
     
     current_play_time = totale_speeltijd_sessie
     if game_state == "SPELEN" and sessie_start_tijd > 0:
@@ -331,29 +367,52 @@ def draw_info_paneel():
     elif game_state != "SPELEN": 
          current_play_time = 0.0
 
-
     tijd_minuten = int(current_play_time // 60)
     tijd_seconden = int(current_play_time % 60)
-    tijd_text = font_klein.render(f"Tijd: {tijd_minuten:02d}:{tijd_seconden:02d}", True, WHITE)
-    screen.blit(tijd_text, (info_x_start, 110))
+    tijd_text_surf = font_klein.render(f"Tijd: {tijd_minuten:02d}:{tijd_seconden:02d}", True, WHITE)
+    screen.blit(tijd_text_surf, (info_x_start, current_y))
+    current_y += tijd_text_surf.get_height() + 10 # Iets meer padding voor highscore sectie
 
-    hs_title_text = font_klein.render("Highscores:", True, WHITE)
-    screen.blit(hs_title_text, (info_x_start, 150))
+    # Highscores sectie
+    hs_title_text_surf = font_klein.render("Highscores:", True, WHITE)
+    screen.blit(hs_title_text_surf, (info_x_start, current_y))
+    current_y += hs_title_text_surf.get_height() + 5 
     
-    hs_y = 180
-    for i, score in enumerate(highscores[:5]):
-        hs_level_naam = score['level'] if score['level'] else 'N'
-        hs_speler = score['naam'][:8] if score['naam'] else 'Anon'
-        hs_tijd_min = int(score['tijd'] // 60)
-        hs_tijd_sec = int(score['tijd'] % 60)
-        score_text_str = f"{i+1}. {hs_level_naam} {hs_speler} {hs_tijd_min:02d}:{hs_tijd_sec:02d}"
-        score_surf = font_mini.render(score_text_str, True, LIGHT_GREY)
-        screen.blit(score_surf, (info_x_start, hs_y))
-        hs_y += 20
-    
+    gamemodes_data = [
+        ("Easy:", highscoresEASY),
+        ("Medium:", highscoresMEDIUM),
+        ("Hard:", highscoresHARD)
+    ]
+
+    padding_after_gamemode_title = 2
+    padding_between_scores = 0 
+    padding_after_gamemode_section = 8
+    score_indent = 15
+
+    for title_str, scores_list in gamemodes_data:
+        gamemode_title_surf = font_mini.render(title_str, True, LIGHT_GREY)
+        screen.blit(gamemode_title_surf, (info_x_start, current_y))
+        current_y += gamemode_title_surf.get_height() + padding_after_gamemode_title
+
+        for i, score_data in enumerate(scores_list[:3]): # Toon top 3
+            speler = score_data['naam'][:8] if score_data['naam'] else 'Anon'
+            tijd_min = int(score_data['tijd'] // 60)
+            tijd_sec = int(score_data['tijd'] % 60)
+            score_str = f"{i+1}. {speler} {tijd_min:02d}:{tijd_sec:02d}"
+            score_item_surf = font_mini.render(score_str, True, LIGHT_GREY)
+            screen.blit(score_item_surf, (info_x_start + score_indent, current_y))
+            current_y += score_item_surf.get_height() + padding_between_scores
+        
+        current_y += padding_after_gamemode_section # Ruimte voor de volgende gamemode of control text
+
+    # Control mode tekst
     control_mode_text_str = f"Control (K): {current_control_mode}"
     control_mode_surf = font_mini.render(control_mode_text_str, True, WHITE)
-    screen.blit(control_mode_surf, (info_x_start, hs_y + 10))
+    
+    # Toon alleen als er nog ruimte is binnen het paneel
+    if current_y + control_mode_surf.get_height() < SCREEN_HEIGHT - 5: # 5px marge van onderkant
+        screen.blit(control_mode_surf, (info_x_start, current_y))
+
 
 #functie om de naam invoer scherm te tekenen
 def draw_naam_invoer_scherm():
@@ -402,7 +461,8 @@ def draw_sessie_einde_scherm():
     screen.blit(info_text, info_rect)
 
 #stel MQTT client in
-setup_mqtt_client() 
+if mqtt_client_instance is None:
+    setup_mqtt_client() 
 
 #start de game loop
 running = True
@@ -516,7 +576,6 @@ while running:
         if ball_x + ball_radius > GAME_AREA_WIDTH :
             levens -= 1
             if levens == 0:
-                
                 voeg_highscore_toe(huidige_level_naam, speler_naam, totale_speeltijd_sessie)
                 game_state = "EINDE"
             else:
@@ -539,11 +598,9 @@ while running:
             launch_ball() 
             
         else:
-            
             draw_speelveld() 
             draw_info_paneel() 
 
-            
             countdown_number_display = math.ceil(time_left_ms / 1000.0)
             countdown_text_surf = font_countdown.render(str(int(countdown_number_display)), True, WHITE)
             
